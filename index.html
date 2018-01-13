@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <body style="
   display: flex;
   align-items: center;
@@ -98,7 +99,7 @@ class Dreamer {
 
 let ac, dreamHouse, dreamer;
 
-document.body.onpointerdown = e => {
+document.body.onmousedown = document.body.ontouchstart = e => {
   e.preventDefault();
 
   if (dreamHouse) return;
@@ -118,7 +119,7 @@ document.body.onpointerdown = e => {
 
   handleEvent(e);
 
-  window.onpointermove = handleEvent;
+  window.onmousemove = window.ontouchmove = handleEvent;
 };
 
 </script>
