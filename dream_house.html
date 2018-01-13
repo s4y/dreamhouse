@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<body style="
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+">
+<p>Click or tap to start. Move your pointer around. Wear headphones.</p>
+<script>
+'use strict';
+
+class DreamSound {
+  constructor(ac, baseFrequency) {
+    this.ac = ac;
+
+    let mixer = ac.createGain();
+    this.node = mixer;
+    mixer.gain.setValueAtTime(0.5, ac.currentTime);
+
+    for (let i = 0; i < 8; i++) {
+      let osc = ac.createOscillator();
+      osc.frequency.setValueAtTime(baseFrequency * Math.pow(2, i), ac.currentTime);
+
+      let gain = ac.createGain();
+      osc.connect(gain);
+      gain.gain.setValueAtTime(1 / (i + 1), ac.currentTime);
+      gain.connect(mixer);
+      osc.start();
+    }
+  }
+}
+
+class DreamHouse {
+  constructor(ac) {
+    this.sounds = [
+      { sound: new DreamSound(ac, 261.63 / Math.pow(2, 4) /* Just C4 */), x: 0, y: 0 },
+      { sound: new DreamSound(ac, 261.63 / Math.pow(2, 4) /* Just C4 */), x: 1, y: 0 },
+      //{ sound: new DreamSound(ac, 470.93 / Math.pow(2, 4) /* Just B4b */), x: 1, y: 0 },
+    ];
+  }
+
+  addDreamer(dreamer) {
+    for (let sound of this.sounds)
+      dreamer.addSource(sound.sound.node, sound.x, sound.y);
+  }
+}
+
+class Ear {
+  constructor(ac, pan) {
+    this.ac = ac;
+    this.mixer = ac.createStereoPanner();
+    this.mixer.pan.setValueAtTime(pan, ac.currentTime);
+
+    this.sources = [];
+  }
+
+  addSource(node, x, y) {
+    let delayNode = this.ac.createDelay();
+    node.connect(delayNode);
+    delayNode.connect(this.mixer);
+    this.sources.push({ node: delayNode, x: x, y: y });
+  }
+
+  setPosition(x, y) {
+    for (const source of this.sources) {
+      let distance = Math.sqrt(Math.pow(x - source.x, 2) + Math.pow(y - source.y, 2));
+      source.node.delayTime.linearRampToValueAtTime(0.01 * distance, this.ac.currentTime + 0.01);
+    }
+  }
+}
+
+class Dreamer {
+  constructor(ac) {
+    this.node = ac.createGain();
+
+    let leftEar = new Ear(ac, -1);
+    leftEar.mixer.connect(this.node);
+
+    let rightEar = new Ear(ac, 1);
+    rightEar.mixer.connect(this.node);
+
+    this.ears = [
+      { node: leftEar, offset: -0.067 },
+      { node: rightEar, offset: 0.067 }
+    ];
+  }
+
+  addSource(source, x, y) {
+    for (let ear of this.ears)
+      ear.node.addSource(source, x, y);
+  }
+
+  setPosition(x, y) {
+    for (let ear of this.ears)
+      ear.node.setPosition(x + ear.offset, y);
+  }
+}
+
+let ac, dreamHouse, dreamer;
+
+document.body.onpointerdown = e => {
+  e.preventDefault();
+
+  if (dreamHouse) return;
+
+  ac = new AudioContext();
+  dreamHouse = new DreamHouse(ac);
+  dreamer = new Dreamer(ac);
+
+  dreamHouse.addDreamer(dreamer);
+  dreamer.node.connect(ac.destination);
+
+  let handleEvent = e => {
+    let x = e.x / innerWidth;
+    let y = 1 - (e.y / innerHeight);
+    dreamer.setPosition(x, y);
+  };
+
+  handleEvent(e);
+
+  window.onpointermove = handleEvent;
+};
+
+</script>
